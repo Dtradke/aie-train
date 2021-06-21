@@ -5,8 +5,8 @@ from ray.rllib.agents import ppo
 from aie.aie_env import AIEEnv, OBS_SPACE_AGENT, ACT_SPACE_AGENT
 from aie.callbacks import MyCallbacks
 
-print(OBS_SPACE_AGENT)
-exit()
+# print(OBS_SPACE_AGENT)
+# exit()
 
 BASE_CONF = {
     "env": AIEEnv,
