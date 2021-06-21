@@ -5,6 +5,9 @@ from ray.rllib.agents import ppo
 from aie.aie_env import AIEEnv, OBS_SPACE_AGENT, ACT_SPACE_AGENT
 from aie.callbacks import MyCallbacks
 
+print(OBS_SPACE_AGENT)
+exit()
+
 BASE_CONF = {
     "env": AIEEnv,
     "callbacks": MyCallbacks,
@@ -35,9 +38,9 @@ def get_base_ppo_conf(num_workers: int):
     return {
         **BASE_PPO_CONF,
 
-        "num_gpus": 1,
+        "num_gpus": 0,
         "num_workers": num_workers,
-        "num_gpus_per_worker": 1 / num_workers,
+        "num_gpus_per_worker": 0, #1 / num_workers,
         'num_envs_per_worker': 60 // num_workers,
 
         "rollout_fragment_length": 200,

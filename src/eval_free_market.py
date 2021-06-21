@@ -19,7 +19,12 @@ trainer = ppo.PPOTrainer(config={
     "num_workers": 0,
 })
 
-ckpt_path = OUT_DIR / 'PPO_AIEEnv_2021-02-19_16-19-44p6xanojq/checkpoint_1777/checkpoint-1777'
+# ckpt_path = OUT_DIR / 'PPO_AIEEnv_2021-02-19_16-19-44p6xanojq/checkpoint_1777/checkpoint-1777'
+
+ckpt_path = OUT_DIR / 'PPO_AIEEnv_2021-06-16_15-25-24hpci613m/checkpoint_000153/checkpoint-153'
+
+print(ckpt_path)
+exit()
 
 trainer.restore(str(ckpt_path))
 
@@ -36,7 +41,12 @@ for t in tqdm(range(1000)):
         )
         for k, v in obs.items()
     }
+    print(results)
+    exit()
     obs, reward, done, info = env.step(results)
+    print(obs)
+    print("reward: ", reward)
+    exit()
 
 # %%
 plotting.breakdown(env.env.previous_episode_dense_log)
