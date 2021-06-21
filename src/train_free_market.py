@@ -12,7 +12,7 @@ def get_conf():
     lr = 1e-4
 
     return {
-        **get_base_ppo_conf(num_workers=4),
+        **get_base_ppo_conf(num_workers=40),
         "lr_schedule": [
             [0, lr],
             [10_000_000, lr],
