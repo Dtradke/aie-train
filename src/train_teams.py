@@ -13,7 +13,7 @@ def get_conf():
     lr = 3e-5
 
     return {
-        **get_base_ppo_conf(num_workers=4),
+        **get_base_ppo_conf(num_workers=10),
         'lr': lr,
         'env_config': ENV_CONF_TEAMS,
     }
