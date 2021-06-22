@@ -1,5 +1,7 @@
 from ai_economist.foundation.base.base_env import scenario_registry
 
 from aie.environments.planner_like_agents_env import PlannerLikeAgentsEnv
+from aie.environments.planner_like_agents_env import PlannerLikeAgentsEnvTeams
 
 scenario_registry.add(PlannerLikeAgentsEnv)
+scenario_registry.add(PlannerLikeAgentsEnvTeams)

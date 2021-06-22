@@ -269,7 +269,9 @@ def report(c_trades, all_builds, n_agents, a_indices=None):
 
 
 def breakdown(log, remap_key=None):
+    print("plotting")
     fig0 = vis_world_range(log, remap_key=remap_key)
+
 
     n = len(list(log["states"][0].keys())) - 1
     trading_active = "Trade" in log
