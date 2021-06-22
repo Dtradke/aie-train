@@ -24,8 +24,8 @@ def get_conf():
 def run():
     ModelCatalog.register_custom_model("my_model", FCNet)
 
-    print(get_conf())
-    exit
+    # print(get_conf())
+    # exit
     trainer = ppo.PPOTrainer(config=get_conf())
 
     t = time.monotonic()
