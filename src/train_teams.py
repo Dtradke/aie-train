@@ -14,7 +14,11 @@ def get_conf():
 
     return {
         **get_base_ppo_conf(num_workers=24),
-        'lr': lr,
+        "lr_schedule": [
+            [0, lr],
+            [10_000_000, lr],
+            [15_000_000, 0],
+        ],
         'env_config': ENV_CONF_TEAMS_DEFAULT_RS,
     }
 
