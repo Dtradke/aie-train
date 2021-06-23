@@ -23,7 +23,8 @@ trainer = ppo.PPOTrainer(config={
 
 
 
-ckpt_path = OUT_DIR / 'PPO_AIEEnv_2021-06-21_11-29-52brgz1h6u/checkpoint_007934/checkpoint-7934'
+# ckpt_path = OUT_DIR / 'PPO_AIEEnv_2021-06-21_11-29-52brgz1h6u/checkpoint_007934/checkpoint-7934'
+ckpt_path = './models/teams_communism/checkpoint_007934/checkpoint-7934'
 
 trainer.restore(str(ckpt_path))
 
@@ -45,11 +46,11 @@ for t in tqdm(range(1000)):
 # %%
 # print("about to plot")
 plotting.breakdown(env.env.previous_episode_dense_log)
-# plt.show()
+plt.show()
 # exit()
-fname = './figs/eval_teams.png'
-plt.savefig(fname,bbox_inches='tight', dpi=300)
-plt.close()
+# fname = './figs/eval_teams.png'
+# plt.savefig(fname,bbox_inches='tight', dpi=300)
+# plt.close()
 
 # %%
 env.env.scenario_metrics()

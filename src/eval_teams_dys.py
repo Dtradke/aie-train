@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import ray
 from ray.rllib.agents import ppo
@@ -8,7 +6,7 @@ from tqdm import tqdm
 
 from aie import plotting
 from aie.aie_env import AIEEnv
-from aie.env_conf import ENV_CONF_TEAMS_MACH
+from aie.env_conf import ENV_CONF_TEAMS_DYS
 from rl.conf import BASE_PPO_CONF, OUT_DIR
 from rl.models.tf.fcnet import FCNet
 
@@ -22,12 +20,12 @@ trainer = ppo.PPOTrainer(config={
     "num_workers": 0,
 })
 
-ckpt_path = './models/teams_mach/checkpoint_007850/checkpoint-7850'
+ckpt_path = './models/teams_dys/checkpoint_023559/checkpoint-23559'
 
 trainer.restore(str(ckpt_path))
 
 # %%
-env = AIEEnv(ENV_CONF_TEAMS_MACH, force_dense_logging=True)
+env = AIEEnv(ENV_CONF_TEAMS_DYS, force_dense_logging=True)
 obs = env.reset()
 
 for t in tqdm(range(1000)):

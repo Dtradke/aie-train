@@ -16,6 +16,84 @@ from ai_economist.foundation.components.utils import (
 )
 
 
+
+# redistribute inventory within a team
+@component_registry.add
+class ResourceRedistribution(BaseComponent):
+    """Redistributes the total coin of the mobile agents as evenly as possible.
+
+    Note:
+        If this component is used, it should always be the last component in the order!
+    """
+
+    name = "ResourceRedistribution"
+    required_entities = ["Wood", "Stone"]
+    agent_subclasses = ["BasicMobileAgent"]
+
+
+    def __init__(
+        self,
+        *base_component_args,
+        period=1,
+        teams=None,
+        **base_component_kwargs
+    ):
+        super().__init__(*base_component_args, **base_component_kwargs)
+
+        self.teams = teams
+        self.team_membership = {0:self.teams[0], #team: indices
+                            1:self.teams[1]}
+
+        self.team_membership_agent = {0:0, #indices: team
+                                1:0,
+                                2:1,
+                                3:1}
+
+    """
+    Required methods for implementing components
+    --------------------------------------------
+    """
+
+    def get_n_actions(self, agent_cls_name):
+        """This component is passive: it does not add any actions."""
+        return
+
+    def get_additional_state_fields(self, agent_cls_name):
+        """This component does not add any state fields."""
+        return {}
+
+    def component_step(self):
+        """
+        See base_component.py for detailed description.
+
+        Redistributes inventory coins so that all agents have equal coin endowment.
+        """
+        world = self.world
+
+        inventory = {0:{"Wood":0,"Stone":0},
+                        1:{"Wood":0,"Stone":0}}
+
+        for agent in world.agents:
+            inventory[self.team_membership_agent[agent.idx]]["Wood"]+=agent.state["inventory"]["Wood"]
+            inventory[self.team_membership_agent[agent.idx]]["Stone"]+=agent.state["inventory"]["Stone"]
+
+        for agent in world.agents:
+            agent.state["inventory"]["Wood"] = inventory[self.team_membership_agent[agent.idx]]["Wood"] // 2
+            agent.state["inventory"]["Stone"] = inventory[self.team_membership_agent[agent.idx]]["Stone"] // 2
+
+
+    def generate_observations(self):
+        """This component does not add any observations."""
+        obs = {}
+        return obs
+
+    def generate_masks(self, completions=0):
+        """Passive component. Masks are empty."""
+        masks = {}
+        return masks
+
+
+
 @component_registry.add
 class TeamTaxBracket(BaseComponent):
     """Periodically collect income taxes from agents and do lump-sum redistribution.
@@ -67,7 +145,7 @@ class TeamTaxBracket(BaseComponent):
     required_entities = ["Coin"]
     agent_subclasses = ["BasicMobileAgent", "BasicPlanner"]
 
-    print(">>> Component added: ", name)
+    # print(">>> Component added: ", name)
 
     def __init__(
         self,

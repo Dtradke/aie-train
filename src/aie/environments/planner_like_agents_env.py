@@ -60,8 +60,6 @@ class PlannerLikeAgentsEnvTeams(LayoutFromFile):
     name = "PlannerLikeAgentsEnvTeams"
 
 
-
-
     def get_current_optimization_metrics(self):
         curr_optimization_metric = {}
 
@@ -87,6 +85,8 @@ class PlannerLikeAgentsEnvTeams(LayoutFromFile):
                 coin_endowments=np.array(team_tot_coin),
                 equality_weight=1 - self.mixing_weight_gini_vs_coin,
             ))
+
+        # agents receive the shared reward of their own team... the planner deals with individual reward to see inequality within a team
         for agent_idx, agent in enumerate(self.world.agents):
             # scale reward to be close to original (utility rewards)
             # curr_optimization_metric[agent.idx] = agent_reward / 10.
@@ -94,16 +94,25 @@ class PlannerLikeAgentsEnvTeams(LayoutFromFile):
 
         population_team_coin = [team_reward[team_membership_agent[agent_idx]] for agent_idx, agent in enumerate(self.world.agents)]
 
-        # (for the planner)
+
+        agent_rewards = np.array([agent.total_endowment("Coin") for agent in self.world.agents])
+
+        # (for the planner) -- takes in individual agents rewards, not team reward (this is to make equality within team matter... dont care about out-team)
         if self.planner_reward_type == "coin_eq_times_productivity":
+            opt_arr = []
+            for team_idxs in team_membership.values():
+                opt_arr.append(rewards.coin_eq_times_productivity(
+                    coin_endowments=np.array(
+                        agent_rewards[team_idxs]
+                    ),
+                    equality_weight=1 - self.mixing_weight_gini_vs_coin,
+                ))
+
             curr_optimization_metric[
                 self.world.planner.idx
-            ] = rewards.coin_eq_times_productivity(
-                coin_endowments=np.array(
-                    population_team_coin
-                ),
-                equality_weight=1 - self.mixing_weight_gini_vs_coin,
-            )
+            ] = np.mean(np.array(opt_arr))
+
+
         elif self.planner_reward_type == "inv_income_weighted_coin_endowments":
             curr_optimization_metric[
                 self.world.planner.idx
