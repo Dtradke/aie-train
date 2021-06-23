@@ -4,7 +4,7 @@ import ray
 from ray.rllib.agents import ppo
 from ray.rllib.models import ModelCatalog
 
-from aie.env_conf import ENV_CONF_TEAMS, ENV_CONF_TEAMS_COMM_RS
+from aie.env_conf import ENV_CONF_TEAMS, ENV_CONF_TEAMS_COMM_RS, ENV_CONF_DEFAULT_RS
 from rl.conf import get_base_ppo_conf
 from rl.models.tf.fcnet import FCNet
 
@@ -15,7 +15,7 @@ def get_conf():
     return {
         **get_base_ppo_conf(num_workers=24),
         'lr': lr,
-        'env_config': ENV_CONF_TEAMS_COMM_RS,
+        'env_config': ENV_CONF_DEFAULT_RS,
     }
 
 
