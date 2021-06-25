@@ -22,7 +22,9 @@ trainer = ppo.PPOTrainer(config={
     "num_workers": 0,
 })
 
-ckpt_path = './models/teams_mach/checkpoint_007850/checkpoint-7850'
+# ckpt_path = './models/teams_mach/checkpoint_007850/checkpoint-7850' # mach non-RS
+
+ckpt_path = './models/RS_teams_mach/checkpoint_014150/checkpoint-14150' # mach RS
 
 trainer.restore(str(ckpt_path))
 

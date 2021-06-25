@@ -4,6 +4,11 @@ from copy import deepcopy
 
 import numpy as np
 
+import tensorflow as tf
+from tensorflow import keras
+import tensorflow_probability as tfp
+import tensorflow.keras.losses as kls
+
 
 
 from ai_economist.foundation.base.base_component import (
@@ -14,6 +19,215 @@ from ai_economist.foundation.components.utils import (
     annealed_tax_limit,
     annealed_tax_mask,
 )
+
+from ai_economist.foundation.scenarios.utils import rewards
+
+
+
+class MyModel(tf.keras.Model):
+    def __init__(self, num_states, hidden_units, num_actions):
+        super(MyModel, self).__init__()
+        self.input_layer = tf.keras.layers.InputLayer(input_shape=(num_states,))
+        self.hidden_layers = []
+        for i in hidden_units:
+            self.hidden_layers.append(tf.keras.layers.Dense(
+                i, activation='tanh', kernel_initializer='RandomNormal')) #tanh # 2 TEAMS = relu
+        self.output_layer = tf.keras.layers.Dense(
+            num_actions, activation='linear', kernel_initializer='RandomNormal') #linear # 2 TEAMS = softmax
+
+    @tf.function
+    def call(self, inputs):
+        z = self.input_layer(inputs)
+        for layer in self.hidden_layers:
+            z = layer(z)
+        output = self.output_layer(z)
+        return output
+
+
+
+class DQN:
+    def __init__(self, type):
+        self.nactions = 3 #len(self.world.agents) // 2
+
+        # actions:
+        # 0: [0,1], [2,3]
+        # 1: [0,2], [1,3]
+        # 2: [0,3], [1,2]
+
+
+        self.batch_size = 32
+        self.optimizer = tf.optimizers.Adam(0.0001)
+        self.gamma = 0.99
+
+        self.max_experiences = 100000
+        self.min_experiences = 32
+
+        self.obs = 4
+        hidden_units = [200,200]
+
+        self.model = MyModel(self.obs, hidden_units, self.nactions)
+
+        self.experience = {'s': [], 'a': [], 'r': [], 's2': [], 'done': []}
+
+    def predict(self, inputs):
+        return self.model(np.atleast_2d(inputs.astype('float32')))
+
+    def get_action(self, states, epsilon):
+        try:
+            q_vals = self.predict(np.atleast_2d(states))[0].numpy()
+            print(">>>>>> qvals: ", q_vals)
+        except:
+            q_vals = self.predict(np.atleast_2d(states))
+            epsilon = 1
+            print(">>>>>> random action, ", q_vals)
+        if np.random.random() < epsilon:
+            return np.random.choice(self.nactions)
+        else:
+            return np.argmax(q_vals)
+
+
+    def train(self, TargetNet):
+        if len(self.experience['s']) < self.min_experiences:
+            return 0
+        ids = np.random.randint(low=0, high=len(self.experience['s']), size=self.batch_size)
+        states = np.asarray([self.experience['s'][i] for i in ids])
+        actions = np.asarray([self.experience['a'][i] for i in ids])
+        rewards = np.asarray([self.experience['r'][i] for i in ids])
+        states_next = np.asarray([self.experience['s2'][i] for i in ids])
+        dones = np.asarray([self.experience['done'][i] for i in ids])
+        value_next = np.max(TargetNet.predict(states_next), axis=1)
+        actual_values = np.where(dones, rewards, rewards+self.gamma*value_next) # adds expected value of future reward whenever not "done"
+
+        with tf.GradientTape() as tape:
+            selected_action_values = tf.math.reduce_sum(
+                self.predict(states) * tf.one_hot(actions, self.nactions), axis=1)
+            loss = tf.math.reduce_mean(tf.square(actual_values - selected_action_values))
+        variables = self.model.trainable_variables
+
+        gradients = tape.gradient(loss, variables)
+        self.optimizer.apply_gradients(zip(gradients, variables))
+        return loss
+
+    def add_experience(self, exp):
+        if len(self.experience['s']) >= self.max_experiences:
+            for key in self.experience.keys():
+                self.experience[key].pop(0)
+        for key, value in exp.items():
+            self.experience[key].append(value)
+
+    def copy_weights(self, TrainNet):
+        variables1 = self.model.trainable_variables
+        variables2 = TrainNet.model.trainable_variables
+        for v1, v2 in zip(variables1, variables2):
+            v1.assign(v2.numpy())
+
+
+
+# redistribute inventory within a team
+@component_registry.add
+class PlannerTeammaker(BaseComponent):
+    """Creates teams for mobile agents.
+
+
+    """
+
+    name = "PlannerTeammaker"
+    required_entities = []
+    agent_subclasses = ["BasicMobileAgent"]
+
+
+    def __init__(
+        self,
+        *base_component_args,
+        period=1,
+        **base_component_kwargs
+    ):
+        super().__init__(*base_component_args, **base_component_kwargs)
+
+
+        self._trainPlanner = DQN("train")
+        self._targetPlanner = DQN("train")
+
+        self._losses = []
+        self._iter = 0
+
+        self._copy_step = 200
+
+        self.eps = 0.5 #TODO: THIS WILL CHANGE
+
+        # self.teams = teams
+        # self.team_membership = {0:self.teams[0], #team: indices
+        #                     1:self.teams[1]}
+        #
+        # self.team_membership_agent = {0:0, #indices: team
+        #                         1:0,
+        #                         2:1,
+        #                         3:1}
+
+    """
+    Required methods for implementing components
+    --------------------------------------------
+    """
+
+    def get_n_actions(self, agent_cls_name):
+        """This component is passive: it does not add any actions."""
+        return
+
+    def get_additional_state_fields(self, agent_cls_name):
+        """This component does not add any state fields."""
+        return {}
+
+    def component_step(self):
+        """
+        See base_component.py for detailed description.
+
+        """
+        world = self.world
+
+        agent_rewards = np.array([agent.total_endowment("Coin") for agent in self.world.agents])
+
+        action = self._trainPlanner.get_action(agent_rewards, self.eps)
+
+        if action == 0:
+            self.world.teams = np.array([np.array([0,1]), np.array([2,3])])
+        elif action == 1:
+            self.world.teams = np.array([np.array([0,2]), np.array([1,3])])
+        elif action == 2:
+            self.world.teams = np.array([np.array([0,3]), np.array([1,2])])
+
+        new_state = deepcopy(self.world.teams)
+        new_state = np.argsort(new_state.flatten())
+        new_state = agent_rewards[new_state]
+        r = rewards.inv_income_weighted_coin_endowments(coin_endowments=agent_rewards)
+
+        done = 0
+        agent_exp = {'s': agent_rewards, 'a': action, 'r': r, 's2': new_state, 'done': done}
+
+        self._trainPlanner.add_experience(agent_exp)
+
+        loss = self._trainPlanner.train(self._targetPlanner)
+        if isinstance(loss, int):
+            self._losses.append(loss)
+        else:
+            agent._losses.append(loss.numpy())
+        self._iter+=1
+        if self._iter % self._copy_step == 0:
+            self._targetPlanner.copy_weights(self._trainPlanner)
+
+
+    def generate_observations(self):
+        """This component does not add any observations."""
+        obs = {}
+        return obs
+
+    def generate_masks(self, completions=0):
+        """Passive component. Masks are empty."""
+        masks = {}
+        return masks
+
+
+
+
 
 
 
@@ -40,14 +254,16 @@ class ResourceRedistribution(BaseComponent):
     ):
         super().__init__(*base_component_args, **base_component_kwargs)
 
-        self.teams = teams
-        self.team_membership = {0:self.teams[0], #team: indices
-                            1:self.teams[1]}
+        # self.teams = teams
+        # self.team_membership = {0:self.teams[0], #team: indices
+        #                     1:self.teams[1]}
+        #
+        # self.team_membership_agent = {0:0, #indices: team
+        #                         1:0,
+        #                         2:1,
+        #                         3:1}
 
-        self.team_membership_agent = {0:0, #indices: team
-                                1:0,
-                                2:1,
-                                3:1}
+        self.world.teams = teams
 
     """
     Required methods for implementing components
@@ -74,12 +290,35 @@ class ResourceRedistribution(BaseComponent):
                         1:{"Wood":0,"Stone":0}}
 
         for agent in world.agents:
-            inventory[self.team_membership_agent[agent.idx]]["Wood"]+=agent.state["inventory"]["Wood"]
-            inventory[self.team_membership_agent[agent.idx]]["Stone"]+=agent.state["inventory"]["Stone"]
+            idx = np.where(self.world.teams.flatten() == agent.idx)[0][0]
+            if idx < 2: team_num = 0
+            else: team_num = 1
+
+            # inventory[self.team_membership_agent[agent.idx]]["Wood"]+=agent.state["inventory"]["Wood"]
+            # inventory[self.team_membership_agent[agent.idx]]["Stone"]+=agent.state["inventory"]["Stone"]
+            inventory[team_num]["Wood"]+=agent.state["inventory"]["Wood"]
+            inventory[team_num]["Stone"]+=agent.state["inventory"]["Stone"]
+
+        # print(inventory)
 
         for agent in world.agents:
-            agent.state["inventory"]["Wood"] = inventory[self.team_membership_agent[agent.idx]]["Wood"] // 2
-            agent.state["inventory"]["Stone"] = inventory[self.team_membership_agent[agent.idx]]["Stone"] // 2
+            idx = np.where(self.world.teams.flatten() == agent.idx)[0][0]
+            if idx < 2: team_num = 0
+            else: team_num = 1
+
+            # agent.state["inventory"]["Wood"] = inventory[self.team_membership_agent[agent.idx]]["Wood"] // 2
+            # agent.state["inventory"]["Stone"] = inventory[self.team_membership_agent[agent.idx]]["Stone"] // 2
+
+            if inventory[team_num]["Wood"]%2 == 0:
+                agent.state["inventory"]["Wood"] = inventory[team_num]["Wood"] // 2
+            if inventory[team_num]["Stone"]%2 == 0:
+                agent.state["inventory"]["Stone"] = inventory[team_num]["Stone"] // 2
+
+        # for agent in world.agents:
+        #     print(agent.idx, " wood: ",agent.state["inventory"]["Wood"])
+        #     print(agent.idx, " stone: ",agent.state["inventory"]["Stone"])
+        #
+        # exit()
 
 
     def generate_observations(self):
@@ -290,6 +529,7 @@ class TeamTaxBracket(BaseComponent):
 
         # === for teams ===
         self._teams = teams
+        self.world.teams = teams
 
         # for annealing of planner actions
         self.tax_annealing_schedule = tax_annealing_schedule
@@ -507,6 +747,7 @@ class TeamTaxBracket(BaseComponent):
                 float(curr_rate)
             )
 
+
         # self.last_income = []
         # self.last_effective_tax_rate = []
         # self.last_marginal_rate = []
@@ -516,7 +757,8 @@ class TeamTaxBracket(BaseComponent):
 
         self.team_tax = np.zeros((self._teams.shape[0],))
 
-        for team_num, team in enumerate(self._teams):
+        # for team_num, team in enumerate(self._teams):
+        for team_num, team in enumerate(self.world.teams):
             for agent_idx in team:
         # for agent, last_coin in zip(self.world.agents, self.last_coin):
                 agent = self.world.agents[agent_idx]
@@ -556,7 +798,8 @@ class TeamTaxBracket(BaseComponent):
             lump_sum[team_num] = self.team_tax[team_num] / self._teams.shape[1]
 
         # for agent in self.world.agents:
-        for team_num, team in enumerate(self._teams):
+        # for team_num, team in enumerate(self._teams):
+        for team_num, team in enumerate(self.world.teams):
             for agent_idx in team:
                 agent = self.world.agents[agent_idx]
 

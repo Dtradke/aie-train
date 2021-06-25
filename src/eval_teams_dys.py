@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from aie import plotting
 from aie.aie_env import AIEEnv
-from aie.env_conf import ENV_CONF_TEAMS_DYS
+from aie.env_conf import ENV_CONF_TEAMS_DYS, ENV_CONF_TEAMS_DYS_RS
 from rl.conf import BASE_PPO_CONF, OUT_DIR
 from rl.models.tf.fcnet import FCNet
 
@@ -20,12 +20,14 @@ trainer = ppo.PPOTrainer(config={
     "num_workers": 0,
 })
 
-ckpt_path = './models/teams_dys/checkpoint_023559/checkpoint-23559'
+# ckpt_path = './models/teams_dys/checkpoint_023559/checkpoint-23559' # dys non-RS
+
+ckpt_path = './models/RS_teams_dys/checkpoint_024231/checkpoint-24231' # dys RS
 
 trainer.restore(str(ckpt_path))
 
 # %%
-env = AIEEnv(ENV_CONF_TEAMS_DYS, force_dense_logging=True)
+env = AIEEnv(ENV_CONF_TEAMS_DYS_RS, force_dense_logging=True)
 obs = env.reset()
 
 for t in tqdm(range(1000)):
